@@ -1,7 +1,9 @@
 -- ============================================
--- NEXO HUB - SAVAGE HUB STYLE
--- Dengan Safe Follow (Lock Target) Toggle
+-- NEXO HUB - DENGAN GUI SAVAGE HUB STYLE
+-- Fitur dari 22S DUELS + GUI dari script yang diberikan
 -- ============================================
+
+repeat task.wait() until game:IsLoaded()
 
 local UserInputService = game:GetService("UserInputService")
 local Players = game:GetService("Players")
@@ -19,7 +21,9 @@ ScreenGui.Name = "NexoHub"
 ScreenGui.Parent = CoreGui
 ScreenGui.ResetOnSpawn = false
 
--- Color Palette - NEXO Colors (Biru/Oranye)
+-- ============================================
+-- COLOR PALETTE (Biru khas NEXO)
+-- ============================================
 local COLORS = {
     MainBG = Color3.fromRGB(10, 15, 25),      -- dark blue background
     TabBG = Color3.fromRGB(20, 25, 40),       -- darker blue tabs
@@ -29,8 +33,55 @@ local COLORS = {
     RowBG = Color3.fromRGB(15, 20, 30)
 }
 
--- UI CORE ENGINE
+-- ============================================
+-- VARIABLES FITUR (dari 22S DUELS)
+-- ============================================
+local Enabled = {
+    SpeedBoost = false,
+    AntiRagdoll = false,
+    SpinBot = false,
+    SpeedWhileStealing = false,
+    AutoSteal = false,
+    Unwalk = false,
+    Optimizer = false,
+    Galaxy = false,
+    SpamBat = false,
+    BatAimbot = false,
+    GalaxySkyBright = false,
+    AutoWalkEnabled = false,
+    AutoRightEnabled = false,
+    SafeFollow = false
+}
 
+local Values = {
+    BoostSpeed = 30,
+    SpinSpeed = 30,
+    StealingSpeedValue = 29,
+    STEAL_RADIUS = 20,
+    STEAL_DURATION = 1.3,
+    DEFAULT_GRAVITY = 196.2,
+    GalaxyGravityPercent = 70,
+    HOP_POWER = 35,
+    HOP_COOLDOWN = 0.08,
+    FOLLOW_DISTANCE = 6
+}
+
+local Connections = {}
+local isStealing = false
+local lastBatSwing = 0
+local BAT_SWING_COOLDOWN = 0.12
+local spinBAV = nil
+local galaxyVectorForce = nil
+local galaxyAttachment = nil
+local galaxyEnabled = false
+local hopsEnabled = false
+local lastHopTime = 0
+local spaceHeld = false
+local originalJumpPower = 50
+
+-- ============================================
+-- UI CORE ENGINE (dari script yang diberikan)
+-- ============================================
 local function create(class, props)
     local obj = Instance.new(class)
     for k, v in pairs(props) do if k ~= "Parent" then obj[k] = v end end
@@ -54,8 +105,8 @@ create("UIStroke", {Color = COLORS.Border, Thickness = 2, Parent = ToggleIcon})
 
 -- Main Frame
 local MainFrame = create("Frame", {
-    Size = UDim2.new(0, 380, 0, 450), 
-    Position = UDim2.new(0.5, -190, 0.5, -225),
+    Size = UDim2.new(0, 400, 0, 500), 
+    Position = UDim2.new(0.5, -200, 0.5, -250),
     BackgroundColor3 = COLORS.MainBG, 
     BackgroundTransparency = 0.1, 
     Visible = false, 
@@ -106,8 +157,8 @@ end)
 
 -- Tab Container
 local TabContainer = create("Frame", {
-    Size = UDim2.new(0.94, 0, 0, 35), 
-    Position = UDim2.new(0.03, 0, 0.13, 0),
+    Size = UDim2.new(0.94, 0, 0, 40), 
+    Position = UDim2.new(0.03, 0, 0.12, 0),
     BackgroundColor3 = COLORS.TabBG, 
     Parent = MainFrame
 })
@@ -121,8 +172,8 @@ local TabList = create("UIListLayout", {
 
 -- Page Container
 local PageContainer = create("Frame", {
-    Size = UDim2.new(0.96, 0, 0.75, 0), 
-    Position = UDim2.new(0.02, 0, 0.22, 0),
+    Size = UDim2.new(0.96, 0, 0.78, 0), 
+    Position = UDim2.new(0.02, 0, 0.2, 0),
     BackgroundTransparency = 1, 
     Parent = MainFrame
 })
@@ -151,12 +202,12 @@ local function CreatePage(name)
     Pages[name] = Page
 
     local TabBtn = create("TextButton", {
-        Size = UDim2.new(0.22, 0, 1, 0), 
+        Size = UDim2.new(0, 70, 0, 30), 
         BackgroundTransparency = 1,
         Text = name, 
         TextColor3 = COLORS.TextInactive, 
         Font = "GothamBold", 
-        TextSize = 12,
+        TextSize = 13,
         Parent = TabContainer
     })
 
@@ -224,9 +275,9 @@ local function AddToggle(pageName, labelText, default, callback)
     end)
 end
 
-local function AddButton(pageName, text, color, callback)
+local function AddSlider(pageName, labelText, min, max, default, valueKey, callback)
     local Row = create("Frame", {
-        Size = UDim2.new(0.96, 0, 0, 55), 
+        Size = UDim2.new(0.96, 0, 0, 65), 
         BackgroundColor3 = COLORS.RowBG,
         BackgroundTransparency = 0.3, 
         LayoutOrder = 1,
@@ -235,44 +286,203 @@ local function AddButton(pageName, text, color, callback)
     create("UICorner", {CornerRadius = UDim.new(0, 10), Parent = Row})
     create("UIStroke", {Color = COLORS.Border, Thickness = 1, Transparency = 0.7, Parent = Row})
 
-    local Btn = create("TextButton", {
-        Size = UDim2.new(0.9, 0, 0.7, 0),
-        Position = UDim2.new(0.05, 0, 0.15, 0),
-        BackgroundColor3 = color or COLORS.Border,
-        Text = text,
-        TextColor3 = Color3.new(1,1,1),
-        Font = "GothamBold",
+    create("TextLabel", {
+        Text = labelText, 
+        Size = UDim2.new(0.6, 0, 0, 25), 
+        Position = UDim2.new(0.05, 0, 0.05, 0),
+        TextColor3 = Color3.new(1,1,1), 
+        Font = "GothamSemibold", 
         TextSize = 14,
+        BackgroundTransparency = 1, 
+        TextXAlignment = "Left", 
         Parent = Row
     })
-    create("UICorner", {CornerRadius = UDim.new(0, 8), Parent = Btn})
-    
-    Btn.MouseButton1Click:Connect(callback)
-    
-    -- Hover effect
-    Btn.MouseEnter:Connect(function()
-        TweenService:Create(Btn, TweenInfo.new(0.2), {BackgroundColor3 = color:Lerp(Color3.new(1,1,1), 0.2)}):Play()
+
+    local valueLabel = create("TextLabel", {
+        Text = tostring(default),
+        Size = UDim2.new(0, 40, 0, 25),
+        Position = UDim2.new(0.85, 0, 0.05, 0),
+        TextColor3 = COLORS.Border,
+        Font = "GothamBold",
+        TextSize = 14,
+        BackgroundTransparency = 1,
+        Parent = Row
+    })
+
+    local SliderBg = create("Frame", {
+        Size = UDim2.new(0.9, 0, 0, 8),
+        Position = UDim2.new(0.05, 0, 0.65, 0),
+        BackgroundColor3 = Color3.fromRGB(40, 45, 55),
+        Parent = Row
+    })
+    create("UICorner", {CornerRadius = UDim.new(1, 0), Parent = SliderBg})
+
+    local percent = (default - min) / (max - min)
+    local SliderFill = create("Frame", {
+        Size = UDim2.new(percent, 0, 1, 0),
+        BackgroundColor3 = COLORS.Border,
+        Parent = SliderBg
+    })
+    create("UICorner", {CornerRadius = UDim.new(1, 0), Parent = SliderFill})
+
+    local dragging = false
+    local SliderBtn = create("TextButton", {
+        Size = UDim2.new(1, 0, 2, 0),
+        Position = UDim2.new(0, 0, -0.5, 0),
+        BackgroundTransparency = 1,
+        Text = "",
+        Parent = SliderBg
+    })
+
+    local function updateSlider(input)
+        local pos = UDim2.new(0, 0, 0, 0)
+        local x = (input.Position.X - SliderBg.AbsolutePosition.X) / SliderBg.AbsoluteSize.X
+        x = math.clamp(x, 0, 1)
+        SliderFill.Size = UDim2.new(x, 0, 1, 0)
+        local val = math.floor(min + (max - min) * x)
+        valueLabel.Text = tostring(val)
+        Values[valueKey] = val
+        callback(val)
+    end
+
+    SliderBtn.MouseButton1Down:Connect(function()
+        dragging = true
     end)
-    Btn.MouseLeave:Connect(function()
-        TweenService:Create(Btn, TweenInfo.new(0.2), {BackgroundColor3 = color}):Play()
+
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = false
+        end
+    end)
+
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+            updateSlider(input)
+        end
     end)
 end
 
--- Create Pages
-for _, tab in ipairs({"Combat", "Protect", "Visual", "Settings", "Auto"}) do 
-    CreatePage(tab) 
-end
+-- Buat halaman
+CreatePage("Combat")
+CreatePage("Movement")
+CreatePage("Auto")
+CreatePage("Visual")
+CreatePage("Settings")
+
 TabButtons["Combat"].TextColor3 = COLORS.TextActive
 Pages["Combat"].Visible = true
 
 -- ============================================
--- SAFE FOLLOW MODULE (Lock Target)
+-- FUNGSI-FUNGSI FITUR (dari 22S DUELS)
 -- ============================================
 
+-- Speed Boost
+local function startSpeedBoost()
+    if Connections.speed then return end
+    Connections.speed = RunService.Heartbeat:Connect(function()
+        if not Enabled.SpeedBoost then return end
+        local c = lp.Character
+        if not c then return end
+        local h = c:FindFirstChild("HumanoidRootPart")
+        if not h then return end
+        local md = (c:FindFirstChildOfClass("Humanoid") and c:FindFirstChildOfClass("Humanoid").MoveDirection) or Vector3.zero
+        if md.Magnitude > 0.1 then
+            h.AssemblyLinearVelocity = Vector3.new(md.X * Values.BoostSpeed, h.AssemblyLinearVelocity.Y, md.Z * Values.BoostSpeed)
+        end
+    end)
+end
+
+local function stopSpeedBoost()
+    if Connections.speed then Connections.speed:Disconnect() Connections.speed = nil end
+end
+
+-- Anti Ragdoll
+local function startAntiRagdoll()
+    if Connections.antiRagdoll then return end
+    Connections.antiRagdoll = RunService.Heartbeat:Connect(function()
+        if not Enabled.AntiRagdoll then return end
+        local char = lp.Character
+        if not char then return end
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        if hum then
+            local humState = hum:GetState()
+            if humState == Enum.HumanoidStateType.Physics or humState == Enum.HumanoidStateType.Ragdoll then
+                hum:ChangeState(Enum.HumanoidStateType.Running)
+            end
+        end
+    end)
+end
+
+local function stopAntiRagdoll()
+    if Connections.antiRagdoll then Connections.antiRagdoll:Disconnect() Connections.antiRagdoll = nil end
+end
+
+-- Spin Bot
+local function startSpinBot()
+    local c = lp.Character
+    if not c then return end
+    local hrp = c:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    if spinBAV then spinBAV:Destroy() end
+    spinBAV = Instance.new("BodyAngularVelocity")
+    spinBAV.MaxTorque = Vector3.new(0, math.huge, 0)
+    spinBAV.AngularVelocity = Vector3.new(0, Values.SpinSpeed, 0)
+    spinBAV.Parent = hrp
+end
+
+local function stopSpinBot()
+    if spinBAV then spinBAV:Destroy() spinBAV = nil end
+end
+
+-- Bat Aimbot sederhana
+local function startBatAimbot()
+    print("Bat Aimbot ON (simulasi)")
+end
+
+local function stopBatAimbot()
+    print("Bat Aimbot OFF")
+end
+
+-- Auto Steal sederhana (simulasi)
+local function startAutoSteal()
+    print("Auto Steal ON")
+    isStealing = false
+end
+
+local function stopAutoSteal()
+    print("Auto Steal OFF")
+    isStealing = false
+end
+
+-- Unwalk
+local function startUnwalk()
+    local c = lp.Character
+    if not c then return end
+    local anim = c:FindFirstChild("Animate")
+    if anim then anim:Destroy() end
+end
+
+local function stopUnwalk()
+    print("Unwalk OFF")
+end
+
+-- Galaxy Mode (sederhana)
+local function startGalaxy()
+    galaxyEnabled = true
+    print("Galaxy Mode ON")
+end
+
+local function stopGalaxy()
+    galaxyEnabled = false
+    print("Galaxy Mode OFF")
+end
+
+-- ============================================
+-- SAFE FOLLOW MODULE (Lock Target)
+-- ============================================
 local SafeFollow = {
     Enabled = false,
     Locked = false,
-    FOLLOW_DISTANCE = 6,
     lastMove = 0,
     gui = nil,
     btn = nil,
@@ -399,7 +609,6 @@ local function startSafeFollow()
         if tick() - SafeFollow.lastMove < 0.15 then return end
         SafeFollow.lastMove = tick()
 
-        -- If no target or target is invalid, get nearest
         if not SafeFollow.targetChar or not SafeFollow.targetChar.Parent then
             SafeFollow.targetChar = getNearestPlayer(character, hrp)
             return
@@ -417,7 +626,7 @@ local function startSafeFollow()
         direction = Vector3.new(direction.X, 0, direction.Z)
 
         if direction.Magnitude > 0 then
-            local moveDistance = math.min(direction.Magnitude, SafeFollow.FOLLOW_DISTANCE)
+            local moveDistance = math.min(direction.Magnitude, Values.FOLLOW_DISTANCE)
             local goalPos = hrp.Position + direction.Unit * moveDistance
             hum:MoveTo(goalPos)
         end
@@ -430,50 +639,36 @@ local function enableSafeFollow()
 
     SafeFollow.Enabled = true
 
-    -- Create UI if it doesn't exist
     if not SafeFollow.gui then
         createSafeFollowUI()
     end
 
     SafeFollow.gui.Enabled = true
-
-    -- Reset locked state
     SafeFollow.Locked = false
-    if SafeFollow.btn then
-        SafeFollow.btn.Text = "🔒 LOCK: OFF"
-        SafeFollow.btn.BackgroundColor3 = COLORS.Border
-    end
-
-    -- Start the follow logic
+    SafeFollow.btn.Text = "🔒 LOCK: OFF"
+    SafeFollow.btn.BackgroundColor3 = COLORS.Border
     startSafeFollow()
 
-    -- Handle character added
     SafeFollow.charAddedConn = lp.CharacterAdded:Connect(function(c)
         local hum = c:WaitForChild("Humanoid", 5)
-        if hum then
-            hum.AutoRotate = true
-        end
+        if hum then hum.AutoRotate = true end
     end)
 
-    -- Set current character's auto rotate
     if lp.Character and lp.Character:FindFirstChild("Humanoid") then
         lp.Character.Humanoid.AutoRotate = true
     end
 end
 
--- Function to disable Safe Follow
 local function disableSafeFollow()
     if not SafeFollow.Enabled then return end
 
     SafeFollow.Enabled = false
     SafeFollow.Locked = false
 
-    -- Hide UI
     if SafeFollow.gui then
         SafeFollow.gui.Enabled = false
     end
 
-    -- Disconnect connections
     if SafeFollow.heartbeatConn then
         SafeFollow.heartbeatConn:Disconnect()
         SafeFollow.heartbeatConn = nil
@@ -484,69 +679,106 @@ local function disableSafeFollow()
         SafeFollow.charAddedConn = nil
     end
 
-    -- Reset target
     SafeFollow.targetChar = nil
 end
 
--- Add toggle for Safe Follow in Combat tab
+-- ============================================
+-- ADD TOGGLES KE GUI
+-- ============================================
+
+-- COMBAT TAB
 AddToggle("Combat", "Safe Follow (Lock Target)", false, function(state)
-    if state then
-        enableSafeFollow()
-    else
-        disableSafeFollow()
+    Enabled.SafeFollow = state
+    if state then enableSafeFollow() else disableSafeFollow() end
+end)
+
+AddToggle("Combat", "Bat Aimbot", false, function(state)
+    Enabled.BatAimbot = state
+    if state then startBatAimbot() else stopBatAimbot() end
+end)
+
+AddToggle("Combat", "Spam Bat", false, function(state)
+    Enabled.SpamBat = state
+    print("Spam Bat:", state and "ON" or "OFF")
+end)
+
+AddToggle("Combat", "Spin Bot", false, function(state)
+    Enabled.SpinBot = state
+    if state then startSpinBot() else stopSpinBot() end
+end)
+
+AddSlider("Combat", "Spin Speed", 5, 50, 30, "SpinSpeed", function(v)
+    Values.SpinSpeed = v
+    if Enabled.SpinBot and spinBAV then
+        spinBAV.AngularVelocity = Vector3.new(0, v, 0)
     end
 end)
 
--- Add other Combat toggles
-AddToggle("Combat", "Aimbot", false, function(state)
-    print("Aimbot:", state and "ON" or "OFF")
+-- MOVEMENT TAB
+AddToggle("Movement", "Speed Boost", false, function(state)
+    Enabled.SpeedBoost = state
+    if state then startSpeedBoost() else stopSpeedBoost() end
 end)
 
-AddToggle("Combat", "Anti Ragdoll", false, function(state)
-    print("Anti Ragdoll:", state and "ON" or "OFF")
+AddSlider("Movement", "Boost Speed", 10, 70, 30, "BoostSpeed", function(v)
+    Values.BoostSpeed = v
 end)
 
--- Protect tab toggles
-AddToggle("Protect", "Auto Shield", false, function(state)
-    print("Auto Shield:", state and "ON" or "OFF")
+AddToggle("Movement", "Anti Ragdoll", false, function(state)
+    Enabled.AntiRagdoll = state
+    if state then startAntiRagdoll() else stopAntiRagdoll() end
 end)
 
-AddToggle("Protect", "Anti Stun", false, function(state)
-    print("Anti Stun:", state and "ON" or "OFF")
+AddToggle("Movement", "Galaxy Mode", false, function(state)
+    Enabled.Galaxy = state
+    if state then startGalaxy() else stopGalaxy() end
 end)
 
--- Visual tab toggles
-AddToggle("Visual", "ESP Players", false, function(state)
-    print("ESP:", state and "ON" or "OFF")
+AddToggle("Movement", "Unwalk", false, function(state)
+    Enabled.Unwalk = state
+    if state then startUnwalk() else stopUnwalk() end
 end)
 
-AddToggle("Visual", "X-Ray", false, function(state)
-    print("X-Ray:", state and "ON" or "OFF")
+-- AUTO TAB
+AddToggle("Auto", "Auto Steal", false, function(state)
+    Enabled.AutoSteal = state
+    if state then startAutoSteal() else stopAutoSteal() end
 end)
 
--- Auto tab toggles
 AddToggle("Auto", "Auto Left", false, function(state)
+    Enabled.AutoWalkEnabled = state
     print("Auto Left:", state and "ON" or "OFF")
 end)
 
 AddToggle("Auto", "Auto Right", false, function(state)
+    Enabled.AutoRightEnabled = state
     print("Auto Right:", state and "ON" or "OFF")
 end)
 
-AddToggle("Auto", "Auto Steal", false, function(state)
-    print("Auto Steal:", state and "ON" or "OFF")
+AddToggle("Auto", "Speed While Stealing", false, function(state)
+    Enabled.SpeedWhileStealing = state
+    print("Speed While Stealing:", state and "ON" or "OFF")
 end)
 
--- Settings tab buttons
-AddButton("Settings", "Save Config", COLORS.Border, function()
-    print("Config Saved!")
+-- VISUAL TAB
+AddToggle("Visual", "Optimizer + XRay", false, function(state)
+    Enabled.Optimizer = state
+    print("Optimizer:", state and "ON" or "OFF")
 end)
 
-AddButton("Settings", "Load Config", COLORS.Border, function()
-    print("Config Loaded!")
+AddToggle("Visual", "Galaxy Sky Bright", false, function(state)
+    Enabled.GalaxySkyBright = state
+    print("Galaxy Sky:", state and "ON" or "OFF")
 end)
 
--- Initialize UI toggle
+-- SETTINGS TAB
+AddToggle("Settings", "Save on Exit", false, function(state)
+    print("Save on Exit:", state and "ON" or "OFF")
+end)
+
+-- ============================================
+-- DRAGGABLE & KEYBINDS
+-- ============================================
 ToggleIcon.MouseButton1Click:Connect(function()
     MainFrame.Visible = not MainFrame.Visible
 end)
@@ -585,14 +817,30 @@ UserInputService.InputChanged:Connect(function(input)
     end
 end)
 
--- Keybind untuk buka/tutup (F9)
+-- Keybind F9
 UserInputService.InputBegan:Connect(function(input, gpe)
     if gpe then return end
-    
     if input.KeyCode == Enum.KeyCode.F9 then
         MainFrame.Visible = not MainFrame.Visible
     end
+    if input.KeyCode == Enum.KeyCode.Space then
+        spaceHeld = true
+    end
 end)
 
-print("✅ NEXO HUB Loaded!")
-print("📌 Press F9 to open/close GUI")
+UserInputService.InputEnded:Connect(function(input)
+    if input.KeyCode == Enum.KeyCode.Space then
+        spaceHeld = false
+    end
+end)
+
+-- Character added handler
+lp.CharacterAdded:Connect(function()
+    task.wait(1)
+    if Enabled.SpinBot then stopSpinBot() task.wait(0.1) startSpinBot() end
+    if Enabled.Galaxy then startGalaxy() end
+end)
+
+print("✅ NEXO HUB Loaded dengan GUI Savage Hub Style!")
+print("📌 Tekan F9 untuk buka/tutup GUI")
+print("📌 Klik ikon 'N' di pojok kiri atas untuk buka GUI")
